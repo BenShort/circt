@@ -352,6 +352,11 @@ struct InsertMergeBlocksPass
     : public circt::impl::InsertMergeBlocksBase<InsertMergeBlocksPass> {
 public:
   void runOnOperation() override {
+    // only write for single block ops
+    auto func = getOperation();
+    auto &region = func.getRegion();
+    if (region.hasOneBlock()) return;
+
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     // Remembers traversed functions to only apply the conversion once.
