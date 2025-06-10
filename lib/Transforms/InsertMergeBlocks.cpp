@@ -245,12 +245,17 @@ static LogicalResult preconditionCheck(Region &r, CFGLoopInfo &loopInfo) {
 /// transformation.
 LogicalResult circt::insertMergeBlocks(Region &r,
                                        ConversionPatternRewriter &rewriter) {
+  // Check the number of blocks in the Region
+  // and exit early if there are not enough
+  if (r.getBlocks().size() < 2)
+      return success();
+
   Block *entry = &r.front();
   DominanceInfo domInfo(r.getParentOp());
 
   CFGLoopInfo loopInfo(domInfo.getDomTree(&r));
   if (failed(preconditionCheck(r, loopInfo)))
-    return success();
+    return failure();
 
   // Traversing the graph in topological order can be simply done with a stack.
   SmallVector<Block *> stack;
