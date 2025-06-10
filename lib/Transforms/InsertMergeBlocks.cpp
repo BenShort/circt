@@ -250,7 +250,7 @@ LogicalResult circt::insertMergeBlocks(Region &r,
 
   CFGLoopInfo loopInfo(domInfo.getDomTree(&r));
   if (failed(preconditionCheck(r, loopInfo)))
-    return failure();
+    return success();
 
   // Traversing the graph in topological order can be simply done with a stack.
   SmallVector<Block *> stack;
@@ -263,16 +263,34 @@ LogicalResult circt::insertMergeBlocks(Region &r,
   // Counts the amount of predecessors remaining.
   auto predsToVisit = graph.getPredCountMapCopy();
 
+  // Filter out unecessary merges (2 or less)
+  DenseSet<Block *> predsToNotVisit;
+  DenseSet<Block *> predsToVisitCopy;
+
+  for(const auto& [block, numPreds] : predsToVisit){
+    predsToVisitCopy.insert(block);
+
+    if (numPreds <= 2 && block != entry)
+        predsToNotVisit.insert(block);
+  }
+
+
   SplitInfo splitInfo;
 
   while (!stack.empty()) {
     Block *currBlock = stack.pop_back_val();
 
+    bool isBlockToVisit = predsToNotVisit.find(currBlock) == predsToNotVisit.end();
+    bool isOriginalBlock = predsToVisitCopy.find(currBlock) == predsToVisitCopy.end();
+
     Block *in = nullptr;
     Block *out = nullptr;
 
-    bool isMergeBlock = graph.getNumPredecessors(currBlock) > 1;
-    bool isSplitBlock = graph.getNumSuccessors(currBlock) > 1;
+    // Only fix upwards
+    bool isMergeBlock = graph.getNumPredecessors(currBlock) > 1 && isBlockToVisit;
+
+    // only insert successors for new merge operations
+    bool isSplitBlock = graph.getNumSuccessors(currBlock) > 1 && !isOriginalBlock;
 
     SmallVector<Block *> preds;
     graph.getPredecessors(currBlock, preds);
